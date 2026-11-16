@@ -33,7 +33,7 @@ Browser ─► FastAPI ─► grafo LangGraph (app/graph.py)
 
 ## Avvio
 
-Requisiti: Python 3.11+, [uv](https://docs.astral.sh/uv/), `ffmpeg`, [Ollama](https://ollama.com) (se usi il modello locale).
+Requisiti: [uv](https://docs.astral.sh/uv/), `ffmpeg`, [Ollama](https://ollama.com) (se usi il modello locale). Python 3.13 lo installa uv da solo (`.python-version`).
 
 Tutti i comandi vanno lanciati dalla cartella principale del repository, quella che contiene `pyproject.toml`:
 
@@ -60,7 +60,7 @@ L'app non ha login: resta in ascolto solo su `127.0.0.1`.
 Con una chiave [LangSmith](https://smith.langchain.com) in `.env`:
 
 ```bash
-uv run --with "langgraph-cli[inmem]" langgraph dev    # apre LangGraph Studio sul grafo
+uv run --with "langgraph-cli[inmem]" --with colorama langgraph dev    # apre LangGraph Studio sul grafo
 ```
 
 Con `LANGSMITH_TRACING=true` ogni esecuzione dell'app (nodi, messaggi, tempi) appare anche su LangSmith.

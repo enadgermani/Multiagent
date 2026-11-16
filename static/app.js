@@ -5,8 +5,11 @@ const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">"
 
 async function post(url, body) {
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.detail);
+  const body = await res.text();
+  // Gli errori FastAPI sono JSON {"detail": ...}; un crash del server può restituire testo semplice.
+  let data;
+  try { data = JSON.parse(body); } catch { data = { detail: body }; }
+  if (!res.ok) throw new Error(`Errore ${res.status}: ${typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)}`);
   return data;
 }
 

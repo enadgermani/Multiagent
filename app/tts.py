@@ -1,6 +1,7 @@
 """Strumenti (non agenti): Gemini TTS e ffmpeg."""
 
 import base64
+import shutil
 import subprocess
 
 from google import genai
@@ -22,9 +23,13 @@ def ffmpeg(wav: bytes, speed: float, pitch: float, fmt: str) -> bytes:
     """
     ratio = 2 ** (pitch / 12)
     filters = f"asetrate={24000 * ratio:.0f},aresample=24000,atempo={1 / ratio:.4f},atempo={speed}"
+    if shutil.which("ffmpeg") is None:
+        raise RuntimeError("ffmpeg non trovato: installalo (Windows: winget install ffmpeg) e riapri il terminale")
     codec = ["-codec:a", "libmp3lame", "-b:a", "128k"] if fmt == "mp3" else []
     result = subprocess.run(
         ["ffmpeg", "-loglevel", "error", "-i", "pipe:0", "-af", filters, *codec, "-f", fmt, "pipe:1"],
-        input=wav, capture_output=True, check=True,
+        input=wav, capture_output=True,
     )
+    if result.returncode != 0:
+        raise RuntimeError("ffmpeg: " + result.stderr.decode(errors="replace"))
     return result.stdout

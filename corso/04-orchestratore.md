@@ -93,7 +93,7 @@ Il file `langgraph.json` dice a Studio dove trovare il grafo:
 ```
 
 ```bash
-uv run --with "langgraph-cli[inmem]" langgraph dev
+uv run --with "langgraph-cli[inmem]" --with colorama langgraph dev
 ```
 
 Il comando avvia un server locale e stampa l'indirizzo di Studio (`https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024`).

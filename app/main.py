@@ -44,7 +44,10 @@ def voices():
 @app.post("/api/format")
 def format_text(req: FormatRequest):
     job_id = uuid.uuid4().hex
-    graph.invoke({"text": req.text}, job_config(job_id))
+    try:
+        graph.invoke({"text": req.text}, job_config(job_id))
+    except Exception as e:  # es. Ollama spento e nessun fallback
+        raise HTTPException(502, f"Errore del formatter: {type(e).__name__}: {e}")
     state = graph.get_state(job_config(job_id))
     if state.next != ("human_review",):
         raise HTTPException(422, f"Il formatter non ha prodotto un copione valido: {state.values['error']}")
@@ -55,7 +58,10 @@ def format_text(req: FormatRequest):
 def synthesize(job_id: str, req: SynthesizeRequest):
     if graph.get_state(job_config(job_id)).next != ("human_review",):
         raise HTTPException(409, "Lavoro non in attesa di revisione: formatta di nuovo il testo.")
-    graph.invoke(Command(resume=req.model_dump()), job_config(job_id))
+    try:
+        graph.invoke(Command(resume=req.model_dump()), job_config(job_id))
+    except Exception as e:  # es. chiave Gemini errata, ffmpeg mancante
+        raise HTTPException(502, f"Errore durante la sintesi: {type(e).__name__}: {e}")
     return {"wav": f"/api/audio/{job_id}.wav", "mp3": f"/api/audio/{job_id}.mp3"}
 
 

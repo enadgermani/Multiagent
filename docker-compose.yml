@@ -1,0 +1,26 @@
+# Uso: docker compose up -d   →   http://localhost:8000
+# Le chiavi arrivano dal file .env (mai nell'immagine).
+services:
+  app:
+    build: .
+    env_file: .env
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+    ports:
+      - "127.0.0.1:8000:8000"   # solo dal tuo computer: l'app non ha login!
+    volumes:
+      - ./output:/app/output
+    depends_on: [ollama]
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama:/root/.ollama
+    # Per la GPU NVIDIA (richiede nvidia-container-toolkit) togli il commento:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices: [{ driver: nvidia, count: all, capabilities: [gpu] }]
+
+volumes:
+  ollama:

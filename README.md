@@ -35,7 +35,11 @@ Browser ─► FastAPI ─► grafo LangGraph (app/graph.py)
 
 Requisiti: Python 3.11+, [uv](https://docs.astral.sh/uv/), `ffmpeg`, [Ollama](https://ollama.com) (se usi il modello locale).
 
+Tutti i comandi vanno lanciati dalla cartella principale del repository, quella che contiene `pyproject.toml`:
+
 ```bash
+git clone https://github.com/enadgermani/Multiagent.git
+cd Multiagent
 cp .env.example .env              # inserisci GEMINI_API_KEY e, se vuoi, DEEPSEEK_API_KEY
 ollama pull qwen3.5:9b            # aggiorna OLLAMA_MODEL se usi un altro modello
 uv sync

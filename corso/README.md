@@ -22,6 +22,14 @@ completa da cui copiare se si resta indietro.
 
 ## Da preparare prima
 
+Clonare il repository ed entrare nella cartella: tutti i comandi `uv` del corso si lanciano da lì,
+dove c'è `pyproject.toml`.
+
+```bash
+git clone https://github.com/enadgermani/Multiagent.git
+cd Multiagent
+```
+
 - Python 3.11+, [uv](https://docs.astral.sh/uv/), `ffmpeg`, git.
 - [Ollama](https://ollama.com) con un modello Qwen da 7-9B: `ollama pull qwen3.5:9b`.
   Senza GPU funziona ma è lento: in quel caso si usa DeepSeek.

@@ -30,6 +30,7 @@ MAX_ATTEMPTS = 3
 
 class State(TypedDict, total=False):
     text: str          # input dell'utente
+    temperature: float # temperatura del formatter, scelta nell'interfaccia
     raw: str           # risposta grezza del formatter
     error: str | None  # errore di validazione (None = ok)
     attempts: int
@@ -39,12 +40,13 @@ class State(TypedDict, total=False):
 
 
 def build_graph(s: Settings, checkpointer=None):
-    model = formatter_model(s)
     out_dir = Path(s.output_dir)
     out_dir.mkdir(exist_ok=True)
 
     def formatter_node(state: State) -> dict:
         messages = formatter.build_messages(state["text"], state.get("raw"), state.get("error"))
+        # Il modello si crea a ogni chiamata (è economico) con la temperatura scelta dall'utente.
+        model = formatter_model(s, state.get("temperature", 0.2))
         return {"raw": model.invoke(messages).content}
 
     def validate_node(state: State) -> dict:

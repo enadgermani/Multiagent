@@ -96,6 +96,10 @@ Il file `langgraph.json` dice a Studio dove trovare il grafo:
 uv run --with "langgraph-cli[inmem]" --with colorama langgraph dev
 ```
 
+`langgraph dev` serve solo il grafo e Studio: l'interfaccia web dell'app non c'è. Se volete anche
+l'app, lanciatela in un secondo terminale con `uv run uvicorn app.main:app`. Sono due server
+indipendenti che usano lo stesso grafo.
+
 Il comando avvia un server locale e stampa l'indirizzo di Studio (`https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024`).
 In `app/studio.py` il grafo è compilato senza checkpointer, perché Studio usa il proprio.
 

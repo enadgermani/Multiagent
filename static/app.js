@@ -19,12 +19,13 @@ async function run(button, fn) {
 }
 
 $("speed").oninput = () => ($("speed-out").textContent = $("speed").value);
+$("temperature").oninput = () => ($("temp-out").textContent = $("temperature").value);
 $("pitch").oninput = () => ($("pitch-out").textContent = $("pitch").value);
 
 // 1 → 2: il formatter prepara il copione, il grafo si ferma per la revisione
 $("format").onclick = () => run($("format"), async () => {
   voices ??= await (await fetch("/api/voices")).json();
-  ({ job_id: jobId, script } = await post("/api/format", { text: $("text").value }));
+  ({ job_id: jobId, script } = await post("/api/format", { text: $("text").value, temperature: +$("temperature").value }));
 
   $("turns").innerHTML = script.turns.map((t, i) => `
     <div class="turn"><b>${esc(t.speaker)}</b> <small>${esc(t.style)}</small>

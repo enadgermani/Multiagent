@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .config import get_settings
 from .graph import build_graph
@@ -25,6 +25,7 @@ app = FastAPI(title="Voce Agenti")
 
 class FormatRequest(BaseModel):
     text: str
+    temperature: float = Field(default=0.2, ge=0, le=1.5)
 
 
 class SynthesizeRequest(BaseModel):
@@ -45,7 +46,7 @@ def voices():
 def format_text(req: FormatRequest):
     job_id = uuid.uuid4().hex
     try:
-        graph.invoke({"text": req.text}, job_config(job_id))
+        graph.invoke({"text": req.text, "temperature": req.temperature}, job_config(job_id))
     except Exception as e:  # es. Ollama spento e nessun fallback
         raise HTTPException(502, f"Errore del formatter: {type(e).__name__}: {e}")
     state = graph.get_state(job_config(job_id))

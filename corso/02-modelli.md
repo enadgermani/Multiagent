@@ -27,19 +27,19 @@ Scelta del progetto: locale per default, remoto se il locale non risponde.
 In LangChain ogni modello ha lo stesso metodo `.invoke(messaggi)`. Scriviamo `app/llm.py`:
 
 ```python
-def local_model(s):
+def local_model(s, temperature):
     return ChatOllama(
         model=s.ollama_model, base_url=s.ollama_base_url,
-        temperature=0.2,   # formattare non è creatività
+        temperature=temperature,
         format="json",     # Ollama genera solo JSON sintatticamente valido
         reasoning=False,   # niente "thinking": più veloce
         num_ctx=16_384,    # il default di Ollama è piccolo e tronca i testi lunghi
     )
 
-def remote_model(s):
+def remote_model(s, temperature):
     return ChatOpenAI(
         model=s.deepseek_model, base_url="https://api.deepseek.com", api_key=s.deepseek_api_key,
-        temperature=0.2, model_kwargs={"response_format": {"type": "json_object"}},
+        temperature=temperature, model_kwargs={"response_format": {"type": "json_object"}},
     )
 ```
 
@@ -58,6 +58,24 @@ m.invoke([SystemMessage('Rispondi in JSON: {"saluto": "..."}'), HumanMessage("Sa
 ```
 
 Poi la stessa cosa con `remote_model`: il codice che chiama non cambia.
+
+### La temperatura
+
+La temperatura arriva dall'interfaccia (cursore "Temperatura del formatter", default 0.2) e viaggia
+nello stato del grafo fino al nodo formatter, che crea il modello con quel valore:
+
+```python
+def formatter_node(state):
+    model = formatter_model(s, state.get("temperature", 0.2))
+    ...
+```
+
+Creare il modello a ogni chiamata costa pochissimo: è solo un oggetto di configurazione, la connessione
+vera avviene in `.invoke()`.
+
+Esercizio: formattate lo stesso testo a 0, 0.7 e 1.5. A temperatura alta il modello inizia a
+parafrasare, aggiunge parole e a volte rompe il JSON: vedrete scattare il ciclo di correzione
+(modulo 4). Per formattare conviene restare tra 0 e 0.3.
 
 ## 2.4 Il fallback (10 min)
 

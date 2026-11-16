@@ -63,6 +63,9 @@ Con una chiave [LangSmith](https://smith.langchain.com) in `.env`:
 uv run --with "langgraph-cli[inmem]" --with colorama langgraph dev    # apre LangGraph Studio sul grafo
 ```
 
+`langgraph dev` avvia solo il grafo e Studio, non l'interfaccia web dell'app: per usare anche
+l'app, lanciala in un secondo terminale con `uv run uvicorn app.main:app` (http://127.0.0.1:8000).
+
 Con `LANGSMITH_TRACING=true` ogni esecuzione dell'app (nodi, messaggi, tempi) appare anche su LangSmith.
 
 ## Limiti

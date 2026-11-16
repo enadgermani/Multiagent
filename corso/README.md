@@ -1,48 +1,29 @@
-# Corso: un'architettura multi-agent in produzione a casa
+# Corso: un'architettura multi-agent a casa, in 4 ore
 
-**Durata:** 4 ore · **Pubblico:** sviluppatori che scrivono Python ma non hanno mai costruito con l'AI
-**Risultato:** alla fine ognuno ha sul proprio computer *Voce Agenti*, un'app web che trasforma un
-testo grezzo in audio italiano a una o più voci, con un modello locale (Qwen via Ollama), uno remoto
-(DeepSeek) e un modello di sintesi vocale cloud (Gemini TTS), coordinati da un grafo LangGraph.
-
-## Il filo conduttore
-
-Il corso non insegna "a usare un framework". Insegna a **decidere**:
-
-1. dove serve un LLM e dove basta il codice;
-2. quale modello usare per quale compito (locale, remoto, specializzato);
-3. come far collaborare più componenti senza perdere il controllo (orchestrazione);
-4. dove mettere l'essere umano (human-in-the-loop);
-5. come rendere tutto testabile, osservabile ed economico.
+**Pubblico:** sviluppatori che sanno Python ma non hanno mai costruito con l'AI.
+**Risultato:** *Voce Agenti* funzionante sul proprio computer: un'app web che trasforma un testo in
+audio italiano a una o due voci, con un modello locale (Qwen su Ollama), uno remoto (DeepSeek) e un
+modello di sintesi vocale (Gemini TTS), coordinati da un grafo LangGraph.
 
 ## Agenda
 
-| Ora | Modulo | Tipo |
+| Ora | Modulo | File del progetto |
 |---|---|---|
-| 0:00 – 0:30 | [1. Concetti: LLM, agenti, workflow, framework](01-concetti.md) | teoria + demo |
-| 0:30 – 1:10 | [2. Modelli locali e remoti dietro un'unica interfaccia](02-modelli.md) | lab |
-| 1:10 – 1:55 | [3. Il primo subagente: il formatter](03-formatter.md) | lab |
+| 0:00 – 0:30 | [1. Concetti e scelta del framework](01-concetti.md) | – |
+| 0:30 – 1:10 | [2. Modelli locali e remoti](02-modelli.md) | `config.py`, `llm.py` |
+| 1:10 – 1:55 | [3. Il subagente formatter](03-formatter.md) | `schemas.py`, `formatter.py` |
 | 1:55 – 2:05 | Pausa | |
-| 2:05 – 2:55 | [4. L'orchestratore con LangGraph](04-orchestratore.md) | lab |
-| 2:55 – 3:30 | [5. Subagente settings, Gemini TTS e audio](05-tts-audio.md) | lab |
-| 3:30 – 4:00 | [6. Web, produzione a casa, e cosa fare dopo](06-produzione.md) | lab + chiusura |
+| 2:05 – 2:55 | [4. L'orchestratore con LangGraph](04-orchestratore.md) | `graph.py` |
+| 2:55 – 3:30 | [5. Subagente settings, Gemini TTS e audio](05-tts-audio.md) | `settings_agent.py`, `tts.py` |
+| 3:30 – 4:00 | [6. Web e avvio a casa](06-web.md) | `main.py`, `static/`, Docker |
 
-## Prima del corso (30 minuti, a casa)
+Ogni modulo: un po' di teoria, poi si scrive il file indicato. Il repository contiene la versione
+completa da cui copiare se si resta indietro.
 
-- Python 3.11+, [uv](https://docs.astral.sh/uv/) (o pip), `ffmpeg`, git.
-- [Ollama](https://ollama.com) e un modello Qwen da 7-9B: `ollama pull qwen3.5:9b`
-  (con 8 GB di VRAM va bene un 7-9B quantizzato a 4 bit; senza GPU funziona ma è lento:
-  in quel caso userete DeepSeek).
+## Da preparare prima
+
+- Python 3.11+, [uv](https://docs.astral.sh/uv/), `ffmpeg`, git.
+- [Ollama](https://ollama.com) con un modello Qwen da 7-9B: `ollama pull qwen3.5:9b`.
+  Senza GPU funziona ma è lento: in quel caso si usa DeepSeek.
 - Una chiave Gemini da [Google AI Studio](https://aistudio.google.com/apikey).
 - Facoltativa: una chiave [DeepSeek](https://platform.deepseek.com).
-
-Verifica: `ollama run qwen3.5:9b "Dimmi ciao in tre lingue"` risponde, `ffmpeg -version` funziona.
-
-## Come usare il codice
-
-Il repository contiene la soluzione completa. Ogni modulo indica i file da scrivere; chi resta
-indietro può copiare il file di riferimento e proseguire. I test (`uv run pytest`) servono da
-"semaforo" alla fine di ogni lab.
-
-Suggerimento per chi conduce: create un branch `inizio` con solo `pyproject.toml`, `.env.example`,
-`app/config.py`, `app/schemas.py` vuoto e `static/`; i partecipanti partono da lì.

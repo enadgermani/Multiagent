@@ -7,96 +7,36 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="top">
-  <h1>Voce Agenti</h1>
-  <p id="status" class="muted">Caricamento configurazione…</p>
-</header>
-
 <main>
-  <!-- 1. INPUT ------------------------------------------------------------ -->
-  <section class="card" id="step-input">
-    <h2><span class="n">1</span> Testo grezzo</h2>
-    <textarea id="raw" rows="9" placeholder="Incolla qui il testo. Per un dialogo usa righe tipo &quot;Marco: ciao&quot;."></textarea>
-    <div class="row">
-      <label>Voci
-        <select id="mode">
-          <option value="auto">Decide il formatter</option>
-          <option value="single">Una voce</option>
-          <option value="multi">Più voci</option>
-        </select>
-      </label>
-      <label class="grow">Parlanti (opzionale, separati da virgola)
-        <input id="speakers" type="text" placeholder="es. Marco, Giulia">
-      </label>
-    </div>
-    <div class="actions">
-      <span id="count" class="muted">0 caratteri</span>
-      <button id="btn-format" class="primary">Formatta per il TTS</button>
-    </div>
+  <h1>Voce Agenti</h1>
+
+  <section>
+    <h2>1. Testo</h2>
+    <textarea id="text" rows="8" placeholder="Incolla il testo. Per un dialogo: &quot;Marco: ciao&quot;"></textarea>
+    <button id="format">Formatta</button>
   </section>
 
-  <!-- 2. REVISIONE -------------------------------------------------------- -->
-  <section class="card hidden" id="step-review">
-    <h2><span class="n">2</span> Rivedi il copione</h2>
-    <p id="notes" class="note"></p>
-    <p class="muted small">Il testo di ogni battuta viene letto così com'è. Lo stile (in inglese) dice <em>come</em> leggerlo. Tag ammessi nel testo: &lt;short pause&gt; &lt;long pause&gt; &lt;laugh&gt; &lt;sigh&gt;.</p>
+  <section id="review" hidden>
+    <h2>2. Rivedi il copione</h2>
     <div id="turns"></div>
-    <div class="actions left">
-      <button id="btn-add-turn" class="ghost">+ Aggiungi battuta</button>
-    </div>
   </section>
 
-  <!-- 3. IMPOSTAZIONI ----------------------------------------------------- -->
-  <section class="card hidden" id="step-settings">
-    <h2><span class="n">3</span> Voce e impostazioni</h2>
-    <div id="voice-pickers" class="grid"></div>
-
-    <div class="grid">
-      <label>Velocità <output id="speed-val">1.00×</output>
-        <input id="speed" type="range" min="0.5" max="2" step="0.05" value="1">
-      </label>
-      <label>Metodo velocità
-        <select id="speed-method">
-          <option value="dsp">Preciso (post-produzione)</option>
-          <option value="prompt">Naturale (chiesto a Gemini)</option>
-        </select>
-      </label>
-      <label>Pitch <output id="pitch-val">0 semitoni</output>
-        <input id="pitch" type="range" min="-6" max="6" step="0.5" value="0">
-      </label>
-      <label>Stile globale (inglese, opzionale)
-        <input id="global-style" type="text" maxlength="300" placeholder="es. warm audiobook narration">
-      </label>
-    </div>
-    <p class="muted small">La lingua è sempre l'italiano. Gemini non ha parametri numerici per velocità e pitch: li applichiamo con ffmpeg dopo la sintesi (o chiediamo la velocità a parole).</p>
-    <div class="actions">
-      <button id="btn-synth" class="primary">Genera audio</button>
-    </div>
+  <section id="settings" hidden>
+    <h2>3. Voce</h2>
+    <div id="voices"></div>
+    <label>Velocità <output id="speed-out">1</output>×
+      <input id="speed" type="range" min="0.5" max="2" step="0.05" value="1"></label>
+    <label>Pitch <output id="pitch-out">0</output> semitoni
+      <input id="pitch" type="range" min="-6" max="6" step="0.5" value="0"></label>
+    <button id="synthesize">Genera audio</button>
   </section>
 
-  <!-- 4. RISULTATO -------------------------------------------------------- -->
-  <section class="card hidden" id="step-result">
-    <h2><span class="n">4</span> Ascolta e scarica</h2>
-    <audio id="player" controls preload="auto"></audio>
-    <div class="actions left">
-      <a id="dl-mp3" class="button primary" download>Scarica MP3</a>
-      <a id="dl-wav" class="button ghost" download>Scarica WAV</a>
-    </div>
-    <ul id="explain" class="explain"></ul>
-    <details>
-      <summary>Payload inviato a Gemini (prima richiesta)</summary>
-      <pre id="payload"></pre>
-    </details>
-  </section>
-
-  <!-- TRACE --------------------------------------------------------------- -->
-  <section class="card hidden" id="step-trace">
-    <h2>Cosa hanno fatto gli agenti</h2>
-    <ol id="trace" class="trace"></ol>
+  <section id="result" hidden>
+    <h2>4. Ascolta</h2>
+    <audio id="player" controls></audio>
+    <a id="download" download>Scarica MP3</a>
   </section>
 </main>
-
-<div id="toast" class="toast hidden" role="alert"></div>
 <script src="app.js"></script>
 </body>
 </html>

@@ -1,97 +1,78 @@
-# Modulo 1 · Concetti (30 min)
+# Modulo 1 · Concetti e scelta del framework (30 min)
 
-**Obiettivi:** avere un modello mentale corretto di LLM, agente, subagente, workflow e orchestrazione;
-sapere perché useremo LangGraph.
-
-## 1.1 Un LLM è una funzione (strana)
-
-Per un programmatore la definizione più utile è:
+## 1.1 Un LLM, visto da un programmatore
 
 ```python
-def llm(messaggi: list[Messaggio], **parametri) -> Messaggio: ...
+def llm(messaggi: list[Messaggio], temperatura: float) -> Messaggio: ...
 ```
 
-- **Input**: una lista di messaggi (`system`, `user`, `assistant`). Il messaggio di sistema dà il ruolo e le regole.
-- **Output**: testo generato un *token* alla volta (un token ≈ ¾ di parola). Ogni token è campionato da una distribuzione di probabilità.
-- **Temperatura**: quanto è "piatta" quella distribuzione. 0–0.3 per compiti precisi (formattare, estrarre), 0.7+ per compiti creativi.
-- **Contesto**: quanti token può leggere in una volta. Tutto ciò che il modello "sa" della conversazione sta lì: non ha memoria tra una chiamata e l'altra.
-- **Non deterministica e fallibile**: può restituire JSON rotto, inventare, ignorare una regola. *Tutta l'ingegneria che faremo serve a gestire questo fatto.*
+- Riceve una lista di messaggi: `system` (ruolo e regole), `user`, `assistant`.
+- Genera testo un *token* alla volta (circa ¾ di parola), scegliendo con una certa casualità:
+  la **temperatura** regola quanta. Bassa (0–0.3) per compiti precisi, alta per compiti creativi.
+- Non ricorda nulla tra una chiamata e l'altra: sa solo quello che c'è nei messaggi (il **contesto**).
+- Può sbagliare formato, ignorare una regola, inventare. Buona parte del progetto serve a gestire questo.
 
-Demo (2 min):
+Prova:
 
 ```bash
-ollama run qwen3.5:9b "Trasforma in testo leggibile ad alta voce: 'Il 3,5% del PIL (dati ISTAT) ecc.'"
+ollama run qwen3.5:9b "Riscrivi per la lettura ad alta voce: 'Il 3,5% del PIL (dati ISTAT) ecc.'"
 ```
 
-Fatelo tre volte: le risposte cambiano. Ora chiedete JSON: a volte arriva con i ```` ``` ```` intorno. Ecco il problema.
+Lanciatelo tre volte: le risposte cambiano.
 
-## 1.2 Workflow o agente?
+## 1.2 Agente, subagente, workflow
 
-| | Workflow | Agente |
+- **Agente**: un LLM in un ciclo. Riceve un obiettivo e degli strumenti, decide quale usare, legge il
+  risultato, decide il passo successivo, finché non ha finito. *È l'LLM a scegliere il percorso.*
+- **Subagente**: un componente con un compito stretto, chiamato da un altro. Prompt corto, contesto
+  pulito, può girare su un modello piccolo.
+- **Workflow**: i passi e il loro ordine sono scritti nel codice. *È il programmatore a scegliere il percorso.*
+- **Orchestrazione**: il pezzo che coordina tutto e passa i dati da un componente all'altro.
+
+Regola pratica: un LLM serve dove c'è da **capire il linguaggio**; dove ci sono **regole** basta il codice.
+E l'orchestrazione è un workflow ogni volta che i passi sono sempre gli stessi.
+
+## 1.3 Il progetto
+
+```
+Browser ─► FastAPI ─► grafo LangGraph
+
+  formatter (LLM) ─► validate ─┬─ errore: riprova (max 3)
+                               └─ ok ─► human_review ⏸ ─► settings ─► tts ─► WAV + MP3
+```
+
+| Componente | Tipo | Perché |
 |---|---|---|
-| Chi decide il prossimo passo | il **tuo codice** | l'**LLM** (in un ciclo con strumenti) |
-| Prevedibilità | alta | bassa |
-| Costo/latenza | bassi | alti, variabili |
-| Quando usarlo | i passi sono noti | il percorso dipende da cosa si scopre strada facendo |
+| orchestratore (`graph.py`) | workflow | i passi sono sempre gli stessi, nello stesso ordine |
+| formatter | subagente **LLM** | capire chi parla e riscrivere "per l'orecchio" richiede comprensione del linguaggio |
+| validate | codice | controllare uno schema è una regola |
+| human_review | persona | prima di spendere crediti TTS, l'utente controlla il copione |
+| settings | subagente **deterministico** | voci, formato della richiesta, limiti dell'API: tutte regole |
+| Gemini TTS, ffmpeg | strumenti | ricevono input, restituiscono audio; non decidono nulla |
 
-Un **agente** nella forma classica è un ciclo: l'LLM riceve un obiettivo e un elenco di strumenti,
-sceglie uno strumento, il codice lo esegue, il risultato torna all'LLM, e così via finché l'LLM non dice "fatto".
+## 1.4 Quale framework
 
-Un **subagente** è un agente (o un LLM) con un compito stretto, chiamato da un altro componente.
-Vantaggi: prompt corti e mirati, contesto pulito, modelli più piccoli e più economici.
+Prima di scegliere, elenchiamo **cosa ci serve**:
 
-**Regola d'oro:** parti dal workflow più semplice che funziona; aggiungi autonomia solo dove porta valore misurabile.
+1. chiamare modelli diversi (Ollama, DeepSeek) con lo stesso codice;
+2. eseguire passi in un ordine fisso, con un ciclo "riprova se l'output è sbagliato";
+3. **fermarsi a metà** per la revisione dell'utente e ripartire più tardi, da un'altra richiesta HTTP;
+4. uno stato condiviso tra i passi (testo, copione, impostazioni).
 
-## 1.3 Rileggiamo l'idea iniziale
+Non ci serve: un LLM che decide i passi, la pianificazione autonoma, la memoria a lungo termine,
+più agenti che conversano tra loro.
 
-L'idea di partenza era:
-
-1. un agente costruisce l'infrastruttura;
-2. un agente, chiamato dal sito, orchestra;
-3. un subagente formatta il testo;
-4. un subagente prepara le impostazioni e la chiamata API;
-5. Google TTS restituisce l'audio.
-
-È un'ottima scomposizione di **ruoli**. Ma non tutti i ruoli devono essere LLM:
-
-- **(1)** è lavoro di *sviluppo*: lo fa un agente di coding (Claude Code) che scrive questo repository,
-  guidato da `CLAUDE.md`. Un agente che costruisce infrastruttura *a ogni richiesta web* sarebbe lento,
-  costoso e pericoloso.
-- **(2)** i passi sono sempre gli stessi → **workflow** (grafo LangGraph), non un LLM che decide.
-- **(3)** serve giudizio linguistico → **LLM** (Qwen locale, DeepSeek di riserva).
-- **(4)** sono regole (max 2 voci per richiesta, voci valide, chunking) → **codice deterministico** con il *ruolo* di agente.
-- **(5)** è uno **strumento** (tool).
-
-E aggiungiamo un attore che l'idea iniziale implicava ma non nominava: **l'umano**, che rivede il copione.
-
-## 1.4 L'architettura che costruiremo
-
-```
-Browser ─► FastAPI ─► Grafo LangGraph
-                       formatter (LLM) ⇄ validate (Pydantic)   ← ciclo di auto-correzione
-                       human_review  ⏸                         ← interrupt + checkpointer
-                       settings (codice) → synthesize (Gemini) → postprocess (ffmpeg)
-```
-
-## 1.5 Quale framework? (e perché LangGraph)
-
-| Strumento | Cos'è | Quando sceglierlo |
+| Strumento | Cosa fa | Copre i nostri bisogni? |
 |---|---|---|
-| **Python puro + SDK** | chiamate dirette alle API | sempre per imparare; ottimo per progetti piccoli |
-| **LangChain** | astrazioni comuni: chat model, messaggi, prompt, structured output, fallback | quando vuoi cambiare provider senza riscrivere. Noi lo usiamo *solo* per questo |
-| **LangGraph** | grafi di stato con nodi, archi condizionali, checkpoint, interrupt, streaming | orchestrazione controllata, human-in-the-loop, ripresa dopo errori. **La nostra scelta** |
-| **deepagents** (LangChain) | agente "pronto" sopra LangGraph: pianificazione (todo), filesystem virtuale, subagenti | compiti lunghi e aperti (ricerca, coding). Qui sarebbe eccessivo: il nostro percorso è fisso |
-| **Hermes** | il nome indica sia i modelli Hermes di Nous Research (open, addestrati per function calling) sia il loro framework di agente "Hermes Agent" | se vuoi un assistente personale autonomo con memoria e strumenti; utile da confrontare, non adatto a una pipeline fissa |
-| Altri: CrewAI, AutoGen/AG2, OpenAI Agents SDK, Claude Agent SDK, PydanticAI | agenti "a ruoli" o loop agentici gestiti | quando il problema è davvero agentico; leggete il codice che generano prima di adottarli |
+| **LangChain** | un'interfaccia unica per i modelli di molti fornitori, più prompt e parser | sì il punto 1. Lo usiamo solo per questo |
+| **LangGraph** | grafi di passi con stato, archi condizionali, pausa e ripresa (checkpoint + interrupt) | sì i punti 2, 3 e 4. **È il nostro orchestratore** |
+| **deepagents** | un agente già pronto sopra LangGraph: l'LLM pianifica una lista di cose da fare, usa un filesystem, delega a subagenti | no: è fatto perché l'LLM decida il percorso, noi il percorso lo conosciamo già |
+| **Hermes Agent** (Nous Research) | un assistente personale autonomo con memoria, strumenti e abilità che impara nel tempo | no: è un prodotto-agente da usare, non un mattone per costruire una pipeline |
+| **CrewAI** | più agenti con un "ruolo" (es. ricercatore, scrittore) che collaborano su un compito | no: ogni nostro passo ha un compito fisso, non serve farli "collaborare" |
+| **AutoGen / AG2** | agenti che si scambiano messaggi in una conversazione per risolvere un problema | no: i nostri componenti si passano dati strutturati, non chiacchierano |
+| **OpenAI Agents SDK**, **Claude Agent SDK** | il ciclo "LLM + strumenti" già scritto, con passaggio di compiti tra agenti, legato al modello del fornitore | no: il cuore è l'agente autonomo, e noi vogliamo modelli di fornitori diversi |
+| **PydanticAI** | chiamate a LLM con output validato da modelli Pydantic, strumenti tipizzati | in parte: coprirebbe i punti 1 e la validazione, ma non la pausa e la ripresa |
 
-Perché LangGraph qui: ci dà **gratis** tre cose che altrimenti scriveremmo a mano e male:
-stato tipizzato condiviso tra i nodi, *checkpoint* (per fermarsi e riprendere quando l'utente rivede il testo),
-e archi condizionali (per il ciclo di auto-correzione). E non ci obbliga a usare un LLM per orchestrare.
-
-## Verifica (5 min)
-
-Rispondete in coppia:
-
-1. Perché il subagente "settings" non usa un LLM?
-2. Cosa succederebbe se l'orchestratore fosse un LLM che sceglie il prossimo passo?
-3. Qual è l'unico punto dove l'LLM è indispensabile?
+In sintesi: quasi tutti questi strumenti servono a costruire **agenti autonomi**. Il nostro problema è
+una **pipeline con un LLM dentro e una pausa per l'utente**: LangGraph è lo strumento che fa
+esattamente questo senza obbligarci a mettere un LLM al comando.

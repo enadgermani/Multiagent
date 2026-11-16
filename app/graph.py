@@ -1,195 +1,101 @@
-"""ORCHESTRATORE: il grafo LangGraph che coordina i subagenti.
+"""ORCHESTRATORE: un grafo LangGraph che coordina i subagenti.
 
-    START
-      │
-      ▼
-  ┌────────────┐   errore e tentativi < 3   ┌──────────┐
-  │ formatter  │ ◄───────────────────────── │ validate │
-  │ (LLM)      │ ─────────────────────────► │ (codice) │
-  └────────────┘                            └────┬─────┘
-                                     ok          │      troppi errori
-                          ┌──────────────────────┘──────────────► END (errore)
-                          ▼
-                  ┌───────────────┐
-                  │ human_review  │  ← interrupt(): il grafo si FERMA e aspetta
-                  │ (tu, nel web) │    che l'utente approvi/modifichi il copione
-                  └───────┬───────┘
-                          ▼
-                  ┌───────────────┐
-                  │ settings      │  subagente deterministico → TTSPlan
-                  └───────┬───────┘
-                          ▼
-                  ┌───────────────┐
-                  │ synthesize    │  tool: Gemini TTS (fan-out parallelo)
-                  └───────┬───────┘
-                          ▼
-                  ┌───────────────┐
-                  │ postprocess   │  tool: ffmpeg (speed, pitch, MP3)
-                  └───────┬───────┘
-                          ▼
-                         END
+    START → formatter → validate ─┬─ errore (max 3 tentativi) → formatter
+                                  └─ ok → human_review ⏸ → settings → tts → END
 
-Perché un grafo e non un "agente orchestratore LLM" che decide da solo?
-Perché qui i passi sono noti in anticipo. Un LLM che sceglie l'ordine dei passi
-aggiungerebbe costo, latenza e imprevedibilità senza alcun beneficio.
-L'LLM lo mettiamo solo dove serve davvero (formatter). È la distinzione
-"workflow vs agent": parti sempre dal workflow, aggiungi autonomia solo se serve.
+- formatter     subagente LLM (Qwen locale / DeepSeek)
+- validate      codice: controlla l'output del formatter con lo schema Pydantic
+- human_review  il grafo si FERMA (interrupt) finché l'utente non approva il copione
+- settings      subagente deterministico: costruisce la richiesta per Gemini
+- tts           strumenti: Gemini TTS, poi ffmpeg per velocità, pitch e MP3
+
+L'ordine dei passi è sempre lo stesso, quindi lo decide il codice (un grafo),
+non un LLM.
 """
 
-import operator
-import time
-import uuid
 from pathlib import Path
-from typing import Annotated, Any, TypedDict
+from typing import TypedDict
 
-from langchain_core.runnables import Runnable, RunnableConfig
+from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
-from langgraph.types import Command, interrupt
+from langgraph.types import interrupt
 
-from . import audio, llm
-from .agents import formatter, settings_agent
+from . import formatter, settings_agent, tts
 from .config import Settings
+from .llm import formatter_model
 from .schemas import Script, VoiceOptions
-from .tts import TTSClient, concat_wavs, make_tts, synthesize_all
 
-MAX_FORMAT_ATTEMPTS = 3
+MAX_ATTEMPTS = 3
 
 
 class State(TypedDict, total=False):
-    # input
-    text: str
-    mode_hint: str
-    speaker_hint: list[str]
-    # formatter / validate
-    raw_output: str
-    error: str | None
+    text: str          # input dell'utente
+    raw: str           # risposta grezza del formatter
+    error: str | None  # errore di validazione (None = ok)
     attempts: int
-    script: dict
-    # human review
-    options: dict
-    # settings / tts / post
-    plan: dict
-    wav_path: str
-    mp3_path: str
-    duration_s: float
-    # trace: il reducer operator.add fa sì che ogni nodo AGGIUNGA voci, non le sostituisca
-    trace: Annotated[list[dict], operator.add]
+    script: dict       # copione validato (Script)
+    options: dict      # scelte dell'utente (VoiceOptions)
+    request: dict      # richiesta per Gemini
 
 
-def _t(agent: str, start: float, **detail: Any) -> list[dict]:
-    return [{"agent": agent, "ms": round((time.perf_counter() - start) * 1000), **detail}]
-
-
-def build_graph(s: Settings, model: Runnable | None = None, tts: TTSClient | None = None,
-                checkpointer=None):
-    """Costruisce e compila il grafo. `model` e `tts` sono iniettabili (test!)."""
-    if model is None and s.formatter_provider != "fake":
-        model = llm.formatter_model(s)
-    model_name = llm.describe(s)
-    tts_client = tts  # creato pigramente: si può formattare anche senza chiave Gemini
+def build_graph(s: Settings):
+    model = formatter_model(s)
     out_dir = Path(s.output_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(exist_ok=True)
 
-    # ------------------------------------------------------------- nodi
     def formatter_node(state: State) -> dict:
-        t0 = time.perf_counter()
-        if s.formatter_provider == "fake" and model is None:
-            raw = formatter.fake_format(state["text"], state.get("mode_hint", "auto"))
-        else:
-            msgs = formatter.build_messages(
-                state["text"], state.get("mode_hint", "auto"), state.get("speaker_hint"),
-                previous_output=state.get("raw_output"), error=state.get("error"),
-            )
-            raw = formatter.run_llm(model, msgs)
-        return {"raw_output": raw,
-                "trace": _t("formatter", t0, model=model_name, attempt=state.get("attempts", 0) + 1)}
+        messages = formatter.build_messages(state["text"], state.get("raw"), state.get("error"))
+        return {"raw": model.invoke(messages).content}
 
     def validate_node(state: State) -> dict:
-        t0 = time.perf_counter()
         attempts = state.get("attempts", 0) + 1
         try:
-            script = formatter.parse_script(state["raw_output"])
+            script = formatter.parse_script(state["raw"])
         except ValueError as e:
-            err = str(e)[:800]
-            return {"error": err, "attempts": attempts,
-                    "trace": _t("validate", t0, ok=False, error=err)}
-        return {"script": script.model_dump(), "error": None, "attempts": attempts,
-                "trace": _t("validate", t0, ok=True, speakers=script.speakers, turns=len(script.turns))}
+            return {"error": str(e), "attempts": attempts}
+        return {"script": script.model_dump(), "error": None, "attempts": attempts}
 
-    def route_after_validate(state: State) -> str:
-        if state.get("error") is None:
+    def after_validate(state: State) -> str:
+        if state["error"] is None:
             return "human_review"
-        return "formatter" if state["attempts"] < MAX_FORMAT_ATTEMPTS else END
+        return "formatter" if state["attempts"] < MAX_ATTEMPTS else END
 
     def human_review_node(state: State) -> dict:
-        # interrupt() salva lo stato nel checkpointer e restituisce il controllo
-        # al chiamante (l'API web). Quando l'utente risponde, il grafo riprende
-        # da QUI e `decision` contiene il valore passato con Command(resume=...).
-        decision = interrupt({"script": state["script"]})
-        script = Script.model_validate(decision.get("script", state["script"]))
-        options = VoiceOptions.model_validate(decision.get("options", {}))
-        return {"script": script.model_dump(), "options": options.model_dump(),
-                "trace": [{"agent": "human_review", "ms": 0, "edited": script.model_dump() != state["script"]}]}
+        # interrupt() salva lo stato e restituisce il controllo all'API web.
+        # Il grafo riparte da qui quando arriva Command(resume=...): il valore
+        # passato nel resume è ciò che interrupt() restituisce.
+        answer = interrupt(state["script"])
+        script = Script.model_validate(answer["script"])
+        options = VoiceOptions.model_validate(answer["options"])
+        return {"script": script.model_dump(), "options": options.model_dump()}
 
     def settings_node(state: State) -> dict:
-        t0 = time.perf_counter()
-        plan = settings_agent.plan_tts(
-            Script.model_validate(state["script"]), VoiceOptions.model_validate(state["options"]), s.tts_model,
-        )
-        return {"plan": plan.model_dump(),
-                "trace": _t("settings", t0, strategy=plan.strategy, voices=plan.voices, requests=len(plan.requests))}
+        request = settings_agent.build_tts_request(
+            Script.model_validate(state["script"]), VoiceOptions.model_validate(state["options"]), s.tts_model)
+        return {"request": request}
 
-    def synthesize_node(state: State, config: RunnableConfig) -> dict:
-        nonlocal tts_client
-        t0 = time.perf_counter()
-        if tts_client is None:
-            tts_client = make_tts(s)
-        wavs = synthesize_all(tts_client, state["plan"]["requests"])
-        wav = concat_wavs(wavs) if len(wavs) > 1 else wavs[0]
-        job = config["configurable"].get("thread_id") or uuid.uuid4().hex
-        path = out_dir / f"{job}.raw.wav"
-        path.write_bytes(wav)
-        return {"wav_path": str(path),
-                "trace": _t("synthesize", t0, model=s.tts_model if s.tts_backend == "gemini" else "fake",
-                            calls=len(wavs))}
+    def tts_node(state: State, config: RunnableConfig) -> dict:
+        wav = tts.synthesize(s.gemini_api_key.get_secret_value(), state["request"])
+        opts = state["options"]
+        job_id = config["configurable"]["thread_id"]
+        for fmt in ("wav", "mp3"):
+            (out_dir / f"{job_id}.{fmt}").write_bytes(tts.ffmpeg(wav, opts["speed"], opts["pitch"], fmt))
+        return {}
 
-    def postprocess_node(state: State) -> dict:
-        t0 = time.perf_counter()
-        raw = Path(state["wav_path"])
-        post = state["plan"]["post"]
-        wav = audio.postprocess(raw.read_bytes(), post["speed"], post["pitch"])
-        final = raw.with_name(raw.name.replace(".raw.wav", ".wav"))
-        final.write_bytes(wav)
-        mp3 = final.with_suffix(".mp3")
-        mp3.write_bytes(audio.to_mp3(wav))
-        raw.unlink(missing_ok=True)
-        duration = (len(wav) - 44) / (2 * 24_000)
-        return {"wav_path": str(final), "mp3_path": str(mp3), "duration_s": round(duration, 2),
-                "trace": _t("postprocess", t0, filter=audio.build_filter(post["speed"], post["pitch"]) or "nessuno")}
-
-    # ------------------------------------------------------------- grafo
     g = StateGraph(State)
     g.add_node("formatter", formatter_node)
     g.add_node("validate", validate_node)
     g.add_node("human_review", human_review_node)
     g.add_node("settings", settings_node)
-    g.add_node("synthesize", synthesize_node)
-    g.add_node("postprocess", postprocess_node)
+    g.add_node("tts", tts_node)
 
     g.add_edge(START, "formatter")
     g.add_edge("formatter", "validate")
-    g.add_conditional_edges("validate", route_after_validate, ["formatter", "human_review", END])
+    g.add_conditional_edges("validate", after_validate, ["formatter", "human_review", END])
     g.add_edge("human_review", "settings")
-    g.add_edge("settings", "synthesize")
-    g.add_edge("synthesize", "postprocess")
-    g.add_edge("postprocess", END)
+    g.add_edge("settings", "tts")
+    g.add_edge("tts", END)
 
-    # Il checkpointer è ciò che rende possibile l'interrupt: lo stato di ogni
-    # "thread" (qui: ogni lavoro) viene salvato e può essere ripreso.
-    # InMemorySaver va bene per uso personale; per persistere ai riavvii usa
-    # SqliteSaver (pacchetto langgraph-checkpoint-sqlite).
-    return g.compile(checkpointer=checkpointer or InMemorySaver())
-
-
-__all__ = ["build_graph", "Command", "State"]
+    # Il checkpointer salva lo stato di ogni lavoro (thread_id): senza, l'interrupt non funziona.
+    return g.compile(checkpointer=InMemorySaver())

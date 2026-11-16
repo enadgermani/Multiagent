@@ -10,6 +10,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 from pydantic import BaseModel
 
@@ -18,7 +19,7 @@ from .graph import build_graph
 from .schemas import VOICES, Script, VoiceOptions
 
 settings = get_settings()
-graph = build_graph(settings)
+graph = build_graph(settings, checkpointer=InMemorySaver())
 app = FastAPI(title="Voce Agenti")
 
 

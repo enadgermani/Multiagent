@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "voce_agenti": "./app/studio.py:graph"
+  },
+  "env": ".env"
+}

@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import TypedDict
 
 from langchain_core.runnables import RunnableConfig
-from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
@@ -39,7 +38,7 @@ class State(TypedDict, total=False):
     request: dict      # richiesta per Gemini
 
 
-def build_graph(s: Settings):
+def build_graph(s: Settings, checkpointer=None):
     model = formatter_model(s)
     out_dir = Path(s.output_dir)
     out_dir.mkdir(exist_ok=True)
@@ -98,4 +97,5 @@ def build_graph(s: Settings):
     g.add_edge("tts", END)
 
     # Il checkpointer salva lo stato di ogni lavoro (thread_id): senza, l'interrupt non funziona.
-    return g.compile(checkpointer=InMemorySaver())
+    # L'API web passa InMemorySaver(); LangGraph Studio usa il proprio (vedi app/studio.py).
+    return g.compile(checkpointer=checkpointer)

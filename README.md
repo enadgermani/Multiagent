@@ -28,6 +28,7 @@ Browser ─► FastAPI ─► grafo LangGraph (app/graph.py)
 | `app/llm.py` | modelli: Qwen su Ollama, DeepSeek, fallback tra i due |
 | `app/schemas.py` | contratti tra gli agenti (Pydantic) e catalogo voci |
 | `app/main.py` | API web |
+| `app/studio.py`, `langgraph.json` | grafo per LangGraph Studio |
 | `static/` | interfaccia |
 
 ## Avvio
@@ -49,6 +50,16 @@ docker compose exec ollama ollama pull qwen3.5:9b
 ```
 
 L'app non ha login: resta in ascolto solo su `127.0.0.1`.
+
+## Vedere il grafo
+
+Con una chiave [LangSmith](https://smith.langchain.com) in `.env`:
+
+```bash
+uv run --with "langgraph-cli[inmem]" langgraph dev    # apre LangGraph Studio sul grafo
+```
+
+Con `LANGSMITH_TRACING=true` ogni esecuzione dell'app (nodi, messaggi, tempi) appare anche su LangSmith.
 
 ## Limiti
 

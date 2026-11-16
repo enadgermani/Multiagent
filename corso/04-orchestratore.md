@@ -80,11 +80,30 @@ Da ricordare:
 - alla ripresa il nodo riparte dall'inizio: il codice prima di `interrupt()` viene rieseguito;
 - il copione torna dal browser, quindi lo validiamo di nuovo.
 
-## 4.4 Vedere il grafo (5 min)
+## 4.4 Vedere il grafo: LangGraph Studio e LangSmith (5 min)
 
-```python
-from app.main import graph
-print(graph.get_graph().draw_mermaid())
+**LangGraph Studio** mostra il grafo disegnato e permette di eseguirlo nodo per nodo, vedere lo stato
+dopo ogni passo e rispondere all'interrupt da un'interfaccia grafica. Serve un account gratuito su
+[LangSmith](https://smith.langchain.com) e una sua chiave in `.env` (`LANGSMITH_API_KEY`).
+
+Il file `langgraph.json` dice a Studio dove trovare il grafo:
+
+```json
+{"dependencies": ["."], "graphs": {"voce_agenti": "./app/studio.py:graph"}, "env": ".env"}
 ```
 
-Incollate il risultato su [mermaid.live](https://mermaid.live) e confrontatelo con il diagramma in cima a `graph.py`.
+```bash
+uv run --with "langgraph-cli[inmem]" langgraph dev
+```
+
+Il comando avvia un server locale e stampa l'indirizzo di Studio (`https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024`).
+In `app/studio.py` il grafo è compilato senza checkpointer, perché Studio usa il proprio.
+
+Prova: in Studio inserite `{"text": "Marco: Ciao Giulia\nGiulia: Ciao!"}` come input. Il grafo si ferma su
+`human_review`; come risposta all'interrupt passate
+`{"script": <il copione mostrato>, "options": {"speed": 1, "pitch": 0}}` e guardate i nodi successivi.
+
+**Tracing.** Con `LANGSMITH_TRACING=true` in `.env`, anche le esecuzioni lanciate dall'app web finiscono
+su LangSmith: per ogni lavoro vedete i nodi, i messaggi inviati al formatter, la sua risposta, i tempi.
+È il modo più rapido per capire perché il formatter ha sbagliato. Ricordate che così i testi vengono
+inviati a LangSmith.

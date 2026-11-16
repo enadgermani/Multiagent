@@ -226,3 +226,4 @@ __pycache__/
 *.pyc
 output/
 .pytest_cache/
+.env.example

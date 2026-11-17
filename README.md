@@ -8,7 +8,7 @@ un'architettura multi-agent:
 - **settings**: costruisce la richiesta per Gemini TTS con voci, velocità e pitch;
 - **Gemini TTS** genera l'audio, che ascolti nel browser o scarichi in MP3.
 
-Il corso di 4 ore che ricostruisce il progetto passo passo è in [`corso/`](corso/README.md).
+Il corso di 4 ore che ricostruisce il progetto un concetto alla volta è in [`corso/`](corso/README.md). Per ricreare l'intera app da zero con un agente di programmazione c'è un prompt unico: [`corso/prompt-da-zero.md`](corso/prompt-da-zero.md).
 
 ## Architettura
 
@@ -71,7 +71,7 @@ Due strumenti, entrambi pensati per imparare:
   uv run python valuta_modelli.py    # esperimenti Qwen vs DeepSeek sul dataset "formatter-it"
   ```
 
-Facoltativo: LangGraph Studio per eseguire il grafo senza l'app (vedi [corso/07-bonus-studio.md](corso/07-bonus-studio.md)).
+Facoltativo: LangGraph Studio per eseguire il grafo senza l'app (vedi [corso/bonus-studio.md](corso/bonus-studio.md)).
 
 ## Limiti
 

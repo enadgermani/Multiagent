@@ -38,6 +38,7 @@ const LABELS = {
   human_review: "Tu: copione approvato e impostazioni",
   settings: "Subagente deterministico: richiesta JSON per Gemini",
   tts: "Strumenti: Gemini TTS e ffmpeg",
+  rewind: "Rigenerazione: il grafo torna alla revisione (time travel)",
 };
 
 async function drawGraph() {
@@ -47,7 +48,7 @@ async function drawGraph() {
   let text = graphText +
     "\n\tclassDef visited fill:#c8efd0,stroke:#2e7d32,color:#000;" +
     "\n\tclassDef current fill:#ffe08a,stroke:#b8860b,stroke-width:3px,color:#000;";
-  const done = [...new Set(visited)].filter((n) => n !== current);
+  const done = [...new Set(visited)].filter((n) => n !== current && n !== "rewind");
   if (done.length) text += `\n\tclass ${done.join(",")} visited;`;
   if (current) text += `\n\tclass ${current} current;`;
   const { svg } = await mermaid.render(`g${Date.now()}`, text);
@@ -111,7 +112,8 @@ $("synthesize").onclick = () => run($("synthesize"), async () => {
 
   const data = await post(`/api/synthesize/${jobId}`, { script, options });
   showInternals(data);
-  $("player").src = data.wav;
+  const bust = `?t=${Date.now()}`;  // stesso file, audio nuovo: evitiamo la cache del browser
+  $("player").src = data.wav + bust;
   $("download").href = data.mp3;
   $("result").hidden = false;
 });

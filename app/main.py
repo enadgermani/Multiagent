@@ -73,13 +73,28 @@ def format_text(req: FormatRequest):
 
 @app.post("/api/synthesize/{job_id}")
 def synthesize(job_id: str, req: SynthesizeRequest):
-    if graph.get_state(job_config(job_id)).next != ("human_review",):
-        raise HTTPException(409, "Lavoro non in attesa di revisione: formatta di nuovo il testo.")
+    state = graph.get_state(job_config(job_id))
+    if state.next != ("human_review",):
+        if "script" not in state.values:
+            raise HTTPException(404, "Lavoro sconosciuto (il server è stato riavviato?): formatta di nuovo il testo.")
+        rewind_to_review(job_id)
     try:
         graph.invoke(Command(resume=req.model_dump()), job_config(job_id, "genera_audio"))
     except Exception as e:  # es. chiave Gemini errata, ffmpeg mancante
         raise HTTPException(502, f"Errore durante la sintesi: {type(e).__name__}: {e}")
     return {"wav": f"/api/audio/{job_id}.wav", "mp3": f"/api/audio/{job_id}.mp3", **view(job_id)}
+
+
+def rewind_to_review(job_id: str) -> None:
+    """Riporta il lavoro alla revisione, per rigenerare l'audio senza richiamare il modello.
+
+    update_state(..., as_node="validate") scrive un nuovo checkpoint COME SE l'avesse
+    prodotto il nodo validate: il grafo segue l'arco validate -> human_review, e
+    invoke(None) lo fa ripartire fino all'interrupt. Il copione resta quello già validato.
+    """
+    step = {"node": "rewind", "output": {"note": "ripartito da validate con il copione già pronto: nessuna nuova chiamata al modello"}}
+    graph.update_state(job_config(job_id), {"error": None, "steps": [step]}, as_node="validate")
+    graph.invoke(None, job_config(job_id))
 
 
 @app.get("/api/audio/{job_id}.{fmt}")

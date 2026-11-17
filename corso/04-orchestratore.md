@@ -80,6 +80,22 @@ Da ricordare:
 - alla ripresa il nodo riparte dall'inizio: il codice prima di `interrupt()` viene rieseguito;
 - il copione torna dal browser, quindi lo validiamo di nuovo.
 
+### Rigenerare l'audio senza richiamare il modello
+
+Dopo "Genera audio" il grafo è arrivato a `END`. Se cambiate voce o pitch e premete di nuovo, l'API
+riporta lo stesso lavoro alla revisione:
+
+```python
+graph.update_state(cfg, {"error": None, "steps": [step]}, as_node="validate")
+graph.invoke(None, cfg)          # segue validate -> human_review e si ferma all'interrupt
+graph.invoke(Command(resume={"script": ..., "options": ...}), cfg)
+```
+
+`update_state(..., as_node="validate")` scrive un nuovo checkpoint **come se** l'avesse prodotto il nodo
+`validate`; il grafo riparte da lì con il copione già pronto. È il *time travel* di LangGraph: il
+checkpointer conserva la storia, e si può riprendere da un punto precedente. Nella pagina compare il
+passo `rewind`, e il formatter non viene richiamato.
+
 ## 4.4 Vedere il grafo mentre lavora (5 min)
 
 Ogni nodo aggiunge una voce allo stato con ciò che ha ricevuto e prodotto:

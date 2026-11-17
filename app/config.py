@@ -3,8 +3,14 @@
 from functools import lru_cache
 from typing import Literal
 
+from dotenv import load_dotenv
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# pydantic-settings legge .env solo per i campi di Settings, senza esportarli.
+# LangSmith invece legge LANGSMITH_* da os.environ: load_dotenv() li rende visibili.
+load_dotenv()
 
 
 class Settings(BaseSettings):

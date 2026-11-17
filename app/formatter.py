@@ -5,6 +5,7 @@ riscrivere il testo "per l'orecchio" richiede comprensione del linguaggio.
 """
 
 import json
+import re
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
@@ -28,16 +29,20 @@ COME RECITARE: due livelli
 5. "style" = come suona TUTTO il turno, in inglese: emozione, ritmo, tono, intonazione.
    Es. "calm, warm narration", "speaking slowly", "whispers", "sarcastic", "high pitch, excited".
    Se l'emozione cambia a metà, dividi in due turni con style diversi.
-6. Eventi puntuali DENTRO "text", tra parentesi angolari, sempre in inglese, solo questi:
+6. OBBLIGATORIO: inserisci DENTRO "text" i tag vocali, tra parentesi angolari, in inglese.
+   Scegli quelli adatti al contesto tra questi:
    <breath> <sigh> <laugh> <chuckle> <gasp> <cough> <throat-clearing> <whispering> <yawn>
-   <short pause> <long pause> (e pochi altri suoni umani: niente effetti sonori).
+   <short pause> <long pause>
+   Usane ALMENO UNO nel copione, e metti <short pause> o <long pause> tra i passaggi.
    Es. "Ci ho pensato a lungo... <short pause> Va bene, accetto."
 7. Pause naturali con virgole, trattini e puntini di sospensione.
-8. Enfasi: MAIUSCOLO sulla parola chiave, con parsimonia. Es. "È MOLTO importante!"
+8. OBBLIGATORIO: in OGNI frase (tranne quelle di una o due parole) scrivi in MAIUSCOLO la parola
+   principale (una, al massimo due).
+   Es. "È MOLTO importante!" "Ci vediamo DOMANI alle nove." "Non era mai stato così FELICE."
 9. Solo nei dialoghi: brevi reazioni di chi ascolta tra barre verticali dentro il turno di chi parla.
-   Es. "Il lancio è giovedì |ah sì?| Siamo pronti?"
+   Es. "Il lancio è GIOVEDÌ |ah sì?| Siamo PRONTI?"
 
-Usa tag, maiuscole e reazioni solo dove il testo li giustifica: meglio pochi che troppi."""
+Le regole 6 e 8 vengono controllate: se mancano, la risposta viene scartata."""
 
 
 def build_messages(text: str, previous: str | None = None, error: str | None = None) -> list:
@@ -48,9 +53,27 @@ def build_messages(text: str, previous: str | None = None, error: str | None = N
     return messages
 
 
+def check_delivery(script: Script) -> None:
+    """Regole di recitazione chieste al formatter (6 e 8 del prompt).
+
+    Stanno qui e non nello schema: valgono per l'output del modello, non per le
+    modifiche che fai tu nella revisione.
+    """
+    if not any(re.search(r"<[^<>]+>", t.text) for t in script.turns):
+        raise ValueError("nessun tag vocale nel copione: aggiungine almeno uno (es. <short pause>, <sigh>)")
+    for t in script.turns:
+        # una "frase" finisce con . ! ? o …; tag e |reazioni| non contano;
+        # le frasi brevissime ("Ah...", "Sì!") sono esentate
+        for sentence in re.split(r"(?<=[.!?…])\s+", re.sub(r"<[^<>]+>|\|[^|]*\|", "", t.text)):
+            if len(sentence.split()) >= 3 and not re.search(r"\b[A-ZÀ-Ý]{2,}\b", sentence):
+                raise ValueError(f"frase senza parola in MAIUSCOLO: \"{' '.join(sentence.split())}\"")
+
+
 def parse_script(raw: str) -> Script:
     """Solleva ValueError (con un messaggio utile per il modello) se l'output non va bene."""
     try:
-        return Script.model_validate(json.loads(raw))
+        script = Script.model_validate(json.loads(raw))
     except json.JSONDecodeError as e:
         raise ValueError(f"JSON non valido: {e}") from e
+    check_delivery(script)
+    return script

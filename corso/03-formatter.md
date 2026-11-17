@@ -64,12 +64,18 @@ TESTO: italiano, fedele, scritto per l'orecchio, niente regia nel testo.
 PARLANTI: un nome per parlante (massimo 2), altrimenti "Narratore".
 COME RECITARE: due livelli
 5. "style" = come suona TUTTO il turno, in inglese ...
-6. Eventi puntuali DENTRO "text", tra parentesi angolari, sempre in inglese, solo questi: ...
+6. OBBLIGATORIO: inserisci DENTRO "text" i tag vocali, scegliendo per contesto tra
+   <breath> <sigh> <laugh> <chuckle> <gasp> <cough> <throat-clearing> <whispering> <yawn>
+   <short pause> <long pause>. Usane ALMENO UNO, e metti pause tra i passaggi.
 7. Pause naturali con virgole, trattini e puntini di sospensione.
-8. Enfasi: MAIUSCOLO sulla parola chiave, con parsimonia.
-9. Solo nei dialoghi: brevi reazioni tra barre verticali, es. "Il lancio è giovedì |ah sì?| Siamo pronti?"
-Usa tag, maiuscole e reazioni solo dove il testo li giustifica: meglio pochi che troppi.
+8. OBBLIGATORIO: in OGNI frase (tranne quelle di una o due parole) la parola principale in MAIUSCOLO.
+9. Solo nei dialoghi: brevi reazioni tra barre verticali, es. "Il lancio è GIOVEDÌ |ah sì?| Siamo PRONTI?"
+Le regole 6 e 8 vengono controllate: se mancano, la risposta viene scartata.
 ```
+
+Un modello piccolo come Qwen 9B tende a ignorare le indicazioni vaghe ("dove serve", "con
+parsimonia"). Per questo le regole 6 e 8 sono scritte come **obblighi verificabili**, con esempi, e il
+prompt dice al modello che verranno controllate.
 
 Come è costruito: compito in una riga, formato d'uscita esplicito, regole numerate e brevi, esempi
 concreti dentro le regole, divieti espliciti dove i modelli sbagliano di solito ("non riassumere").
@@ -99,6 +105,23 @@ def build_messages(text, previous=None, error=None):
                      HumanMessage(f"Risposta non valida: {error}\nCorreggi e rispondi solo con il JSON.")]
     return messages
 ```
+
+Oltre allo schema, `parse_script` controlla le regole di recitazione:
+
+```python
+def check_delivery(script: Script) -> None:
+    if not any(re.search(r"<[^<>]+>", t.text) for t in script.turns):
+        raise ValueError("nessun tag vocale nel copione: aggiungine almeno uno (es. <short pause>, <sigh>)")
+    for t in script.turns:
+        for sentence in re.split(r"(?<=[.!?…])\s+", re.sub(r"<[^<>]+>|\|[^|]*\|", "", t.text)):
+            if len(sentence.split()) >= 3 and not re.search(r"\b[A-ZÀ-Ý]{2,}\b", sentence):
+                raise ValueError(f"frase senza parola in MAIUSCOLO: ...")
+```
+
+Perché qui e non nello schema `Script`? Lo schema vale anche per il copione che **voi** modificate nella
+revisione: se toglieste un maiuscolo, non avrebbe senso rifiutarlo. Queste regole valgono solo per ciò che
+produce il modello. Regola generale: **ogni istruzione importante del prompt dovrebbe avere un controllo
+nel codice**, altrimenti non sapete se il modello la rispetta.
 
 Funziona bene perché gli errori di Pydantic sono precisi (`turns.2.speaker: Field required`).
 Il ciclo "riprova al massimo 3 volte" non lo scriviamo qui: lo costruiamo nel grafo, nel modulo 4.

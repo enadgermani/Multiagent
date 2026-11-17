@@ -80,39 +80,29 @@ Da ricordare:
 - alla ripresa il nodo riparte dall'inizio: il codice prima di `interrupt()` viene rieseguito;
 - il copione torna dal browser, quindi lo validiamo di nuovo.
 
-## 4.4 Vedere il grafo: LangGraph Studio e LangSmith (5 min)
+## 4.4 Vedere il grafo mentre lavora (5 min)
 
-**LangGraph Studio** mostra il grafo disegnato e permette di eseguirlo nodo per nodo, vedere lo stato
-dopo ogni passo e rispondere all'interrupt da un'interfaccia grafica. Serve un account gratuito su
-[LangSmith](https://smith.langchain.com) e una sua chiave in `.env` (`LANGSMITH_API_KEY`).
+Ogni nodo aggiunge una voce allo stato con ciò che ha ricevuto e prodotto:
 
-Il file `langgraph.json` dice a Studio dove trovare il grafo:
+```python
+class State(TypedDict, total=False):
+    ...
+    steps: Annotated[list[dict], operator.add]   # reducer: ogni nodo AGGIUNGE, non sostituisce
 
-```json
-{"dependencies": ["."], "graphs": {"voce_agenti": "./app/studio.py:graph"}, "env": ".env"}
+def settings_node(state):
+    request = settings_agent.build_tts_request(...)
+    return {"request": request, "steps": [{"node": "settings", "output": {"gemini_request": request}}]}
 ```
 
-```bash
-uv run --with "langgraph-cli[inmem]" --with colorama langgraph dev
-```
+`operator.add` è un **reducer**: dice a LangGraph come combinare il valore nuovo con quello vecchio.
+Senza, ogni nodo sovrascriverebbe la lista.
 
-`langgraph dev` serve solo il grafo e Studio: l'interfaccia web dell'app non c'è. Se volete anche
-l'app, lanciatela in un secondo terminale con `uv run uvicorn app.main:app`. Sono due server
-indipendenti che usano lo stesso grafo.
+La pagina chiede il diagramma a `/api/graph` (che restituisce `graph.get_graph().draw_mermaid()`) e lo
+colora: verde i nodi eseguiti, giallo quello dove il grafo è fermo.
 
-Il comando avvia un server locale e stampa l'indirizzo di Studio (`https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024`).
-In `app/studio.py` il grafo è compilato senza checkpointer, perché Studio usa il proprio.
-
-Prova: in Studio inserite `{"text": "Marco: Ciao Giulia\nGiulia: Ciao!"}` come input. Il grafo si ferma su
-`human_review`. Nel box di risposta all'interrupt:
-
-- lasciate `""` e premete **Resume**: il copione viene approvato così com'è, con voci e velocità di default;
-- oppure scrivete solo ciò che volete cambiare, ad esempio
-  `{"options": {"voices": {"Marco": "Puck"}, "speed": 1.2, "pitch": -2}}`.
-
-Il nodo usa lo stato per tutto ciò che non passate: non serve ricopiare il copione.
-
-**Tracing.** Con `LANGSMITH_TRACING=true` in `.env`, anche le esecuzioni lanciate dall'app web finiscono
-su LangSmith: per ogni lavoro vedete i nodi, i messaggi inviati al formatter, la sua risposta, i tempi.
-È il modo più rapido per capire perché il formatter ha sbagliato. Ricordate che così i testi vengono
-inviati a LangSmith.
+> **Cosa guardare.**
+> - *Pagina*: dopo "Formatta" il grafo è fermo su `human_review` (giallo). Dopo "Genera audio" tutti i
+>   nodi sono verdi e l'elenco dei passi mostra l'intero percorso, compresi eventuali tentativi ripetuti.
+> - *LangSmith*: le due chiamate HTTP diventano due trace, "formatta" e "genera_audio". Hanno lo stesso
+>   `thread_id` nei metadata, quindi nella vista **Threads** del progetto compaiono insieme: è lo stesso
+>   lavoro, interrotto e ripreso.

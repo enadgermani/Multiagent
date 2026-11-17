@@ -76,3 +76,6 @@ più agenti che conversano tra loro.
 In sintesi: quasi tutti questi strumenti servono a costruire **agenti autonomi**. Il nostro problema è
 una **pipeline con un LLM dentro e una pausa per l'utente**: LangGraph è lo strumento che fa
 esattamente questo senza obbligarci a mettere un LLM al comando.
+
+> **Cosa guardare.** Aprite la pagina web: nella colonna "Dietro le quinte" c'è il grafo del progetto,
+> disegnato da LangGraph a partire dal codice. Riconoscete i componenti della tabella 1.3.

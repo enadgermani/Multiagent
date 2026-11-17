@@ -90,3 +90,10 @@ Ollama e a rifare l'invoke con `formatter_model`.
 
 Attenzione: il fallback scatta sugli **errori**, non sulle risposte **sbagliate**. Se Qwen risponde
 con un JSON valido ma scorretto, il fallback non interviene.
+
+> **Cosa guardare.**
+> - *Pagina*: nel passo `formatter` compaiono i modelli configurati, la temperatura e, sotto "ha
+>   risposto", il modello che ha effettivamente risposto: spegnete Ollama e vedrete DeepSeek.
+> - *LangSmith*: aprite la trace "formatta" e cliccate sulla chiamata `ChatOllama` (o `ChatOpenAI`):
+>   ci sono i messaggi completi, i parametri (temperatura, formato JSON), i token e la latenza.
+>   Le chiamate fatte con i modelli LangChain vengono tracciate senza scrivere codice.

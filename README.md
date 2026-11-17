@@ -28,8 +28,9 @@ Browser ─► FastAPI ─► grafo LangGraph (app/graph.py)
 | `app/llm.py` | modelli: Qwen su Ollama, DeepSeek, fallback tra i due |
 | `app/schemas.py` | contratti tra gli agenti (Pydantic) e catalogo voci |
 | `app/main.py` | API web |
-| `app/studio.py`, `langgraph.json` | grafo per LangGraph Studio |
-| `static/` | interfaccia |
+| `valuta_modelli.py` | confronto tra modelli con dataset ed esperimenti LangSmith |
+| `app/studio.py`, `langgraph.json` | grafo per LangGraph Studio (facoltativo) |
+| `static/` | interfaccia: l'app e la vista "Dietro le quinte" |
 
 ## Avvio
 
@@ -55,18 +56,22 @@ docker compose exec ollama ollama pull qwen3.5:9b
 
 L'app non ha login: resta in ascolto solo su `127.0.0.1`.
 
-## Vedere il grafo
+## Vedere cosa succede
 
-Con una chiave [LangSmith](https://smith.langchain.com) in `.env`:
+Due strumenti, entrambi pensati per imparare:
 
-```bash
-uv run --with "langgraph-cli[inmem]" --with colorama langgraph dev    # apre LangGraph Studio sul grafo
-```
+- **La pagina web**: nella colonna "Dietro le quinte" c'è il grafo (generato da LangGraph) con il nodo
+  attivo evidenziato, e per ogni passo il JSON scambiato: prompt inviato al modello, risposta grezza,
+  esito della validazione, richiesta per Gemini, filtro ffmpeg.
+- **LangSmith**: con `LANGSMITH_TRACING=true` e `LANGSMITH_API_KEY` in `.env`, ogni esecuzione diventa una
+  trace con prompt completi, token, latenze e la chiamata a Gemini (senza la chiave e senza l'audio).
+  Da lì: Playground per riprovare il prompt del formatter, e confronto tra modelli con
 
-`langgraph dev` avvia solo il grafo e Studio, non l'interfaccia web dell'app: per usare anche
-l'app, lanciala in un secondo terminale con `uv run uvicorn app.main:app` (http://127.0.0.1:8000).
+  ```bash
+  uv run python valuta_modelli.py    # esperimenti Qwen vs DeepSeek sul dataset "formatter-it"
+  ```
 
-Con `LANGSMITH_TRACING=true` ogni esecuzione dell'app (nodi, messaggi, tempi) appare anche su LangSmith.
+Facoltativo: LangGraph Studio per eseguire il grafo senza l'app (vedi [corso/07-bonus-studio.md](corso/07-bonus-studio.md)).
 
 ## Limiti
 

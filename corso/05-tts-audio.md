@@ -47,13 +47,31 @@ def build_tts_request(script, opts, model):
 Le regole: una voce valida per ogni parlante, l'italiano sempre richiesto nello stile, il formato
 diverso per una o due voci. Un LLM qui sarebbe più lento, più costoso e potrebbe sbagliare il formato.
 
+### Tracciare anche ciò che non è LangChain
+
+Le chiamate ai modelli LangChain finiscono su LangSmith da sole; la chiamata a Gemini no, perché usa
+l'SDK di Google. Basta un decoratore:
+
+```python
+@traceable(
+    run_type="tool",
+    name="gemini_tts",
+    process_inputs=lambda inputs: {"request": inputs["request"]},  # la chiave API non finisce nella trace
+    process_outputs=lambda wav: {"wav_bytes": len(wav)},           # niente byte audio, solo la dimensione
+)
+def synthesize(api_key: str, request: dict) -> bytes: ...
+```
+
+`process_inputs` e `process_outputs` decidono cosa registrare: qui togliamo la chiave e l'audio.
+
 ## 5.3 Velocità e pitch con ffmpeg (10 min)
 
 Gemini non li ha, quindi li applichiamo all'audio dopo la sintesi:
 
 ```python
-ratio = 2 ** (pitch / 12)   # un semitono = rapporto di frequenza 2^(1/12)
-filters = f"asetrate={24000 * ratio:.0f},aresample=24000,atempo={1 / ratio:.4f},atempo={speed}"
+def audio_filter(speed, pitch):
+    ratio = 2 ** (pitch / 12)   # un semitono = rapporto di frequenza 2^(1/12)
+    return f"asetrate={24000 * ratio:.0f},aresample=24000,atempo={1 / ratio:.4f},atempo={speed}"
 ```
 
 - `asetrate` fa suonare l'audio come se fosse campionato a un'altra frequenza: il tono sale o scende, ma cambia anche la durata;
@@ -68,3 +86,9 @@ ffmpeg -i in.wav -codec:a libmp3lame -b:a 128k out.mp3
 ```
 
 Un'alternativa per la velocità è chiederla a Gemini nello `style` ("slow pace"): suona più naturale ma è meno precisa.
+
+> **Cosa guardare.**
+> - *Pagina*: il passo `settings` contiene la richiesta JSON esatta per Gemini (provate a passare da
+>   una a due voci e confrontate `speech_config`); il passo `tts` mostra il filtro ffmpeg applicato.
+> - *LangSmith*: nella trace "genera_audio" c'è il run `gemini_tts` con la stessa richiesta e la sua
+>   latenza: di solito è il passo più lento di tutto il sistema.

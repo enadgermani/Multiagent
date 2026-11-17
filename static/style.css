@@ -1,9 +1,12 @@
-:root { --bg: #fafaf8; --fg: #1d1d1f; --line: #ddd; --accent: #2f5bd3; color-scheme: light dark; }
-@media (prefers-color-scheme: dark) { :root { --bg: #161618; --fg: #eee; --line: #333; --accent: #7c9dff; } }
+:root { --bg: #fafaf8; --fg: #1d1d1f; --line: #ddd; --accent: #2f5bd3; --code: #f0efea; color-scheme: light dark; }
+@media (prefers-color-scheme: dark) { :root { --bg: #161618; --fg: #eee; --line: #333; --accent: #7c9dff; --code: #222226; } }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
-main { max-width: 760px; margin: 0 auto; padding: 16px; }
+body { margin: 0 auto; max-width: 1400px; padding: 16px; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+.layout { display: grid; gap: 24px; }
+@media (min-width: 1000px) { .layout { grid-template-columns: 1fr 1fr; } aside { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow: auto; } }
+main, aside { min-width: 0; }
 section { border-top: 1px solid var(--line); padding: 12px 0; }
+aside { border-top: 1px solid var(--line); padding-top: 12px; }
 textarea, select { width: 100%; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: inherit; }
 label { display: block; margin: 12px 0; }
 input[type=range] { width: 100%; }
@@ -11,5 +14,13 @@ button, a#download { display: inline-block; margin-top: 10px; padding: 10px 20px
   background: var(--accent); color: #fff; font: inherit; cursor: pointer; text-decoration: none; }
 button:disabled { opacity: .5; }
 .turn { margin-bottom: 10px; }
-.turn small { opacity: .7; }
+.turn small, .hint { opacity: .7; }
+.hint { font-size: .9rem; }
 audio { width: 100%; }
+#graph { text-align: center; }
+#graph svg { max-width: 100%; height: auto; }
+details { border: 1px solid var(--line); border-radius: 6px; margin-bottom: 8px; }
+summary { cursor: pointer; padding: 8px 10px; }
+summary b { text-transform: uppercase; font-size: .8rem; letter-spacing: .04em; }
+pre { margin: 0; padding: 10px; background: var(--code); overflow: auto; font-size: .8rem; white-space: pre-wrap; word-break: break-word; }
+.role { margin: 8px 10px 2px; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; opacity: .7; }

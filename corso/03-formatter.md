@@ -76,3 +76,10 @@ def build_messages(text, previous=None, error=None):
 
 Funziona bene perché gli errori di Pydantic sono precisi (`turns.2.speaker: Field required`).
 Il ciclo "riprova al massimo 3 volte" non lo scriviamo qui: lo costruiamo nel grafo, nel modulo 4.
+
+> **Cosa guardare.**
+> - *Pagina*: aprite il passo `formatter` e leggete il prompt di sistema esattamente come arriva al
+>   modello, poi la risposta grezza. Il passo `validate` dice se lo schema è rispettato e, se no, perché.
+> - *LangSmith*: alzate la temperatura a 1.2 e formattate un testo lungo finché una risposta non viene
+>   scartata. Nella trace vedrete due chiamate al modello: nella seconda, i messaggi includono la
+>   risposta sbagliata e l'errore di Pydantic.

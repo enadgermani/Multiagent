@@ -5,8 +5,17 @@ import shutil
 import subprocess
 
 from google import genai
+from langsmith import traceable
 
 
+# @traceable registra la chiamata su LangSmith (se il tracing è attivo).
+# Mostriamo la richiesta JSON completa; dell'audio solo la dimensione, non i byte.
+@traceable(
+    run_type="tool",
+    name="gemini_tts",
+    process_inputs=lambda inputs: {"request": inputs["request"]},  # la chiave API non finisce nella trace
+    process_outputs=lambda wav: {"wav_bytes": len(wav)},
+)
 def synthesize(api_key: str, request: dict) -> bytes:
     """Chiama Gemini TTS e restituisce un WAV (24 kHz, mono, 16 bit)."""
     client = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
@@ -14,15 +23,18 @@ def synthesize(api_key: str, request: dict) -> bytes:
     return base64.b64decode(interaction.output_audio.data)
 
 
-def ffmpeg(wav: bytes, speed: float, pitch: float, fmt: str) -> bytes:
-    """Gemini non ha parametri di velocità e pitch: li applichiamo noi.
+def audio_filter(speed: float, pitch: float) -> str:
+    """Gemini non ha parametri di velocità e pitch: li applichiamo noi con ffmpeg.
 
     - pitch: asetrate alza/abbassa il tono (ma cambia anche la durata),
       poi aresample torna a 24 kHz e atempo ricompensa la durata
     - velocità: atempo cambia la durata senza toccare il tono
     """
     ratio = 2 ** (pitch / 12)
-    filters = f"asetrate={24000 * ratio:.0f},aresample=24000,atempo={1 / ratio:.4f},atempo={speed}"
+    return f"asetrate={24000 * ratio:.0f},aresample=24000,atempo={1 / ratio:.4f},atempo={speed}"
+
+
+def ffmpeg(wav: bytes, filters: str, fmt: str) -> bytes:
     if shutil.which("ffmpeg") is None:
         raise RuntimeError("ffmpeg non trovato: installalo (Windows: winget install ffmpeg) e riapri il terminale")
     codec = ["-codec:a", "libmp3lame", "-b:a", "128k"] if fmt == "mp3" else []

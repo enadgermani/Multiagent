@@ -67,8 +67,12 @@ def build_graph(s: Settings, checkpointer=None):
         # Il grafo riparte da qui quando arriva Command(resume=...): il valore
         # passato nel resume è ciò che interrupt() restituisce.
         answer = interrupt(state["script"])
-        script = Script.model_validate(answer["script"])
-        options = VoiceOptions.model_validate(answer["options"])
+        # Risposta vuota (es. Resume in Studio) = approvo il copione così com'è, opzioni di default.
+        # Ogni chiave mancante prende il valore attuale: {"options": {...}} cambia solo la voce.
+        if not isinstance(answer, dict):
+            answer = {}
+        script = Script.model_validate(answer.get("script", state["script"]))
+        options = VoiceOptions.model_validate(answer.get("options", {}))
         return {"script": script.model_dump(), "options": options.model_dump()}
 
     def settings_node(state: State) -> dict:

@@ -104,8 +104,13 @@ Il comando avvia un server locale e stampa l'indirizzo di Studio (`https://smith
 In `app/studio.py` il grafo è compilato senza checkpointer, perché Studio usa il proprio.
 
 Prova: in Studio inserite `{"text": "Marco: Ciao Giulia\nGiulia: Ciao!"}` come input. Il grafo si ferma su
-`human_review`; come risposta all'interrupt passate
-`{"script": <il copione mostrato>, "options": {"speed": 1, "pitch": 0}}` e guardate i nodi successivi.
+`human_review`. Nel box di risposta all'interrupt:
+
+- lasciate `""` e premete **Resume**: il copione viene approvato così com'è, con voci e velocità di default;
+- oppure scrivete solo ciò che volete cambiare, ad esempio
+  `{"options": {"voices": {"Marco": "Puck"}, "speed": 1.2, "pitch": -2}}`.
+
+Il nodo usa lo stato per tutto ciò che non passate: non serve ricopiare il copione.
 
 **Tracing.** Con `LANGSMITH_TRACING=true` in `.env`, anche le esecuzioni lanciate dall'app web finiscono
 su LangSmith: per ogni lavoro vedete i nodi, i messaggi inviati al formatter, la sua risposta, i tempi.

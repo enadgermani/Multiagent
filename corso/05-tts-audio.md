@@ -32,7 +32,7 @@ def build_tts_request(script, opts, model):
 
     content = []
     for t in script.turns:
-        meta = {"type": "speech_metadata", "style": f"Speak Italian with a native accent. {t.style}"}
+        meta = {"type": "speech_metadata", "style": f"Speak Italian with a native accent. {t.style}".strip()}
         if multi:
             meta["speaker"] = t.speaker
         content.append({"type": "text", "text": t.text, "annotations": [meta]})

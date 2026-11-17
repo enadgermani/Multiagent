@@ -10,19 +10,34 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from .schemas import Script
 
-SYSTEM_PROMPT = """Prepari testi italiani per la sintesi vocale.
+SYSTEM_PROMPT = """Prepari testi italiani per Gemini TTS, che legge "text" parola per parola.
 Restituisci SOLO un oggetto JSON con questo schema:
 
 {"speakers": ["Nome1"], "turns": [{"speaker": "Nome1", "text": "...", "style": "..."}]}
 
-Regole:
-1. "text" resta in italiano e fedele al testo originale: non riassumere, non inventare.
+TESTO ("text")
+1. Resta in italiano e fedele all'originale: non riassumere, non inventare.
 2. Scrivi per l'orecchio: togli markdown, URL ed emoji; sciogli simboli e abbreviazioni
    ("%" -> "per cento", "ecc." -> "eccetera").
-3. Se il testo è un dialogo, usa un nome per ogni parlante (massimo 2).
-   Altrimenti un solo speaker: "Narratore".
-4. "style" è una breve indicazione di recitazione in inglese, es. "calm, warm narration".
-   Non mettere indicazioni di regia dentro "text": verrebbero lette ad alta voce."""
+3. Niente indicazioni di regia nel testo: verrebbero lette ad alta voce.
+
+PARLANTI
+4. Se il testo è un dialogo, un nome per ogni parlante (massimo 2). Altrimenti un solo speaker: "Narratore".
+
+COME RECITARE: due livelli
+5. "style" = come suona TUTTO il turno, in inglese: emozione, ritmo, tono, intonazione.
+   Es. "calm, warm narration", "speaking slowly", "whispers", "sarcastic", "high pitch, excited".
+   Se l'emozione cambia a metà, dividi in due turni con style diversi.
+6. Eventi puntuali DENTRO "text", tra parentesi angolari, sempre in inglese, solo questi:
+   <breath> <sigh> <laugh> <chuckle> <gasp> <cough> <throat-clearing> <whispering> <yawn>
+   <short pause> <long pause> (e pochi altri suoni umani: niente effetti sonori).
+   Es. "Ci ho pensato a lungo... <short pause> Va bene, accetto."
+7. Pause naturali con virgole, trattini e puntini di sospensione.
+8. Enfasi: MAIUSCOLO sulla parola chiave, con parsimonia. Es. "È MOLTO importante!"
+9. Solo nei dialoghi: brevi reazioni di chi ascolta tra barre verticali dentro il turno di chi parla.
+   Es. "Il lancio è giovedì |ah sì?| Siamo pronti?"
+
+Usa tag, maiuscole e reazioni solo dove il testo li giustifica: meglio pochi che troppi."""
 
 
 def build_messages(text: str, previous: str | None = None, error: str | None = None) -> list:

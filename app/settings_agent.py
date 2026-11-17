@@ -16,7 +16,8 @@ def build_tts_request(script: Script, opts: VoiceOptions, model: str) -> dict:
 
     content = []
     for t in script.turns:
-        meta = {"type": "speech_metadata", "style": f"Speak Italian with a native accent. {t.style}"}
+        # Lo style del turno va in speech_metadata, separato dal testo (che è letto verbatim).
+        meta = {"type": "speech_metadata", "style": f"Speak Italian with a native accent. {t.style}".strip()}
         if multi:
             meta["speaker"] = t.speaker
         content.append({"type": "text", "text": t.text, "annotations": [meta]})

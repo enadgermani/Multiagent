@@ -1,6 +1,8 @@
 """I contratti tra gli agenti: oggetti tipizzati, non testo libero."""
 
-from pydantic import BaseModel, Field, model_validator
+import re
+
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # Le 30 voci predefinite di Gemini TTS (nome: carattere). Sono timbri, non lingue.
 VOICES = {
@@ -15,10 +17,27 @@ VOICES = {
 }
 
 
+# Tag vocali in linea ammessi da Gemini TTS (prompting guide, sempre in inglese anche per testi italiani).
+VOCAL_TAGS = {
+    "argh", "breath", "heavy breath", "exhales", "cackle", "cheer", "chuckle", "chuckles", "cough",
+    "cry", "gasp", "giggle", "groan", "growl", "grunt", "grr", "hiss", "laugh", "laughter", "moan",
+    "pant", "pff", "phew", "scream", "shout", "shriek", "sigh", "sighs", "sneeze", "snicker", "snort",
+    "sob", "throat-clearing", "tsk", "whimper", "whispers", "whispering", "yawn", "short pause", "long pause",
+}
+
+
 class Turn(BaseModel):
     speaker: str
-    text: str            # viene LETTO così com'è
-    style: str = ""      # come leggerlo (in inglese), non viene letto
+    text: str            # trascrizione LETTA parola per parola; può contenere tag <...> e |reazioni|
+    style: str = ""      # recitazione sostenuta per tutto il turno (in inglese): finisce in speech_metadata.style
+
+    @field_validator("text")
+    @classmethod
+    def known_tags(cls, text: str) -> str:
+        unknown = {t for t in re.findall(r"<([^<>]+)>", text) if t.strip().lower() not in VOCAL_TAGS}
+        if unknown:
+            raise ValueError(f"tag non ammessi: {sorted(unknown)}. Usa solo: {sorted(VOCAL_TAGS)}")
+        return text
 
 
 class Script(BaseModel):
